@@ -141,6 +141,18 @@
     box-shadow: 4px 4px 0 #000;
     transition: transform 0.1s;
   }
+  #crash {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #0000AA;
+  color: white;
+  font-family: 'Courier New', monospace;
+  z-index: 99999;
+}
+#crash h2 { font-size: 36px; margin-bottom: 30px; }
+#crash p  { font-size: 18px; line-height: 2; }
   #btn:active { transform: scale(0.95) translate(2px,2px); box-shadow: 2px 2px 0 #000; }
   #btn:hover { background: #cc0000; }
 </style>
@@ -155,12 +167,12 @@
 
 <script>
 const GIFS = [
-  'https://media.giphy.com/media/13d2jHlSlxklVe/giphy.gif',   // Homer doh
-  'https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif', // Homer drooling
-  'https://media.giphy.com/media/3oriO6qJiXajN0TovC/giphy.gif', // Homer mmm donuts
-  'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif',  // Homer backing into bush
-  'https://media.giphy.com/media/IgLbJbzpxuRiQ/giphy.gif',     // Homer mmm beer
-  'https://media.giphy.com/media/8PBjqMFSg4OITM2lBs/giphy.gif',// Homer dancing
+  'https://media.giphy.com/media/jUwpNzg9IcyrK/giphy.gif',  // Homer into da bush
+  'https://media.giphy.com/media/Zk9mW5OmXTz9e/giphy.gif',  // Homer drooling
+  'https://media.giphy.com/media/xT5LMpBWU96Yivdfeo/giphy.gif',  // Homer mmm donuts
+  'https://media.giphy.com/media/R3tHUypTIfmFi/giphy.gif',  // Homer spidery pig
+  'https://media.giphy.com/media/CgKFTMMFDESNW/giphy.gif',  // Homer firbidden bear
+  'https://media.giphy.com/media/Za7ZWOU0su5BC/giphy.gif',  // Treadmil sitting
 ];
 
 const MESSAGES = [
@@ -176,46 +188,12 @@ const MESSAGES = [
   "I'm normally not a praying man,\nbut if you're up there...",
 ];
 
-const SOUNDS = [
-  'https://www.soundboard.com/handler/DownLoadTrack.ashx?cliptitle=Homer+Doh&filename=mz/Mzg1ODMxNTIzMzg1ODMx.mp3',
-];
-
-// Use AudioContext with a simple "doh" beep since external audio might be blocked
-let audioCtx;
 function playDoh() {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Simulate a "doh" with oscillators
-    const patterns = [
-      [{ f: 380, t: 0,    d: 0.12 },
-       { f: 320, t: 0.1,  d: 0.12 },
-       { f: 260, t: 0.2,  d: 0.18 },
-       { f: 200, t: 0.33, d: 0.25 }],
-      [{ f: 440, t: 0,    d: 0.08 },
-       { f: 380, t: 0.07, d: 0.08 },
-       { f: 300, t: 0.14, d: 0.15 },
-       { f: 180, t: 0.28, d: 0.3  }],
-      [{ f: 500, t: 0,    d: 0.07 },
-       { f: 420, t: 0.06, d: 0.10 },
-       { f: 340, t: 0.15, d: 0.15 },
-       { f: 220, t: 0.29, d: 0.28 }],
-    ];
-    const pat = patterns[Math.floor(Math.random() * patterns.length)];
-    const now = audioCtx.currentTime;
-    pat.forEach(({ f, t, d }) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(f, now + t);
-      osc.frequency.exponentialRampToValueAtTime(f * 0.6, now + t + d);
-      gain.gain.setValueAtTime(0.38, now + t);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + t + d + 0.05);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now + t);
-      osc.stop(now + t + d + 0.1);
-    });
-  } catch(e) {}
+  const audio = new Audio('crash.wav');
+  audio.play();
+}
+function playCooked() {
+  const AuDiO = new Audio('doh.wav');
 }
 
 let count = 0;
@@ -223,6 +201,7 @@ let interval = null;
 let running = false;
 let popups = [];
 let dragTarget = null, dragOffX = 0, dragOffY = 0;
+let delay = 600;
 
 document.addEventListener('mousemove', e => {
   if (dragTarget) {
@@ -250,7 +229,7 @@ function makePopup() {
 
   win.innerHTML = `
     <div class="popup-titlebar" title="drag me">
-      <span>🍩 Homer Alert #${count}</span>
+      <span>🍩 Homer.exe #${count}</span>
       <div class="popup-close" title="close">✕</div>
     </div>
     <div class="popup-body">
@@ -280,11 +259,7 @@ function makePopup() {
   popups.push(win);
   playDoh();
 
-  // Keep max ~60 windows so browser doesn't melt
-  if (popups.length > 60) {
-    const old = popups.shift();
-    if (old && old.parentNode) old.remove();
-  }
+
 }
 
 // Floating Homers on the main screen
@@ -300,21 +275,45 @@ for (let i = 0; i < 4; i++) {
   document.body.appendChild(h);
 }
 
+function triggerCrash() {
+  playCooked();
+  running = false;
+  clearTimeout(interval);
+  document.getElementById('crash').style.display = 'block';
+}
+
+function scheduleNext() {
+  if (!running) return;
+  interval = setTimeout(function() {
+    makePopup();
+    delay = Math.max(60, delay * 0.92);
+    if (delay <= 60) {
+      triggerCrash();  // 💥 crash when limit is hit
+      return;
+    }
+    scheduleNext();
+  }, delay);
+}
+
 function toggleChaos() {
   if (!running) {
     running = true;
+    delay = 2000;  // resets to slow on each fresh start
     document.getElementById('btn').textContent = '🛑 STOP THE MADNESS 🛑';
     document.getElementById('btn').style.background = '#006600';
-    // Pop one immediately, then keep going
     makePopup();
-    interval = setInterval(makePopup, 600);
+    scheduleNext();
   } else {
     running = false;
-    clearInterval(interval);
+    clearTimeout(interval);
     document.getElementById('btn').textContent = '🍩 UNLEASH HOMER 🍩';
     document.getElementById('btn').style.background = '#FF3300';
   }
 }
 </script>
+<div id="crash">
+  <img id="crash-img" src="BSOD.png" style="width:100%;height:100%;object-fit:cover;display:block;">
+  <p id="crash-counter" style="position:fixed;bottom:60px;left:60px;color:white;font-family:'Segoe UI',sans-serif;font-size:22px;"></p>
+</div>
 </body>
 </html>
