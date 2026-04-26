@@ -32,24 +32,6 @@
     from { transform: scale(1); }
     to { transform: scale(1.08); }
   }
-  .homer-float {
-    position: fixed;
-    width: 120px;
-    height: 120px;
-    pointer-events: none;
-    animation: floatAround 3s linear infinite;
-    border-radius: 50%;
-    background: url('https://media.giphy.com/media/13d2jHlSlxklVe/giphy.gif') center/cover;
-    border: 4px solid #FF6600;
-    box-shadow: 0 0 20px #FF000088;
-  }
-  @keyframes floatAround {
-    0%   { transform: translate(0,0) rotate(0deg); }
-    25%  { transform: translate(30px,-40px) rotate(90deg); }
-    50%  { transform: translate(-20px,20px) rotate(180deg); }
-    75%  { transform: translate(40px,10px) rotate(270deg); }
-    100% { transform: translate(0,0) rotate(360deg); }
-  }
   .popup-window {
     position: fixed;
     background: white;
@@ -113,6 +95,7 @@
     color: #000;
   }
   #counter {
+    display: none;
     position: fixed;
     bottom: 20px;
     right: 20px;
@@ -141,6 +124,9 @@
     box-shadow: 4px 4px 0 #000;
     transition: transform 0.1s;
   }
+  #btn:active { transform: scale(0.95) translate(2px,2px); box-shadow: 2px 2px 0 #000; }
+  #btn:hover { background: #cc0000; }
+
   #crash {
   display: none;
   position: fixed;
@@ -153,15 +139,33 @@
 }
 #crash h2 { font-size: 36px; margin-bottom: 30px; }
 #crash p  { font-size: 18px; line-height: 2; }
-  #btn:active { transform: scale(0.95) translate(2px,2px); box-shadow: 2px 2px 0 #000; }
-  #btn:hover { background: #cc0000; }
+
+#donut {
+  font-size: 120px;
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.2s;
+  user-select: none;
+}
+#donut:hover {
+  transform: scale(1.5);
+  filter: drop-shadow(0 0 20px #FF6600);
+}
+@keyframes explode {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(3);   opacity: 0.8; filter: brightness(3); }
+  100% { transform: scale(8);   opacity: 0; }
+}
+.exploding {
+  animation: explode 0.6s forwards;
+}
+
 </style>
 </head>
 <body>
 
-<h1>D'OH!</h1>
-<p>Homer is everywhere. You cannot stop him.</p>
-<button id="btn" onclick="toggleChaos()">🍩 UNLEASH HOMER 🍩</button>
+<div id="donut" onclick="triggerDonut()">
+  <img src="donut.png" style="width:200px;height:200px;object-fit:contain;">
+</div>
 
 <div id="counter">Homers: 0</div>
 
@@ -186,14 +190,19 @@ const MESSAGES = [
   "D'OHHHHH!",
   "Bart, with $10,000 we'd be\nmillionaires!",
   "I'm normally not a praying man,\nbut if you're up there...",
-];
+]
 
 function playDoh() {
-  const audio = new Audio('crash.wav');
+  const audio = new Audio('doh.wav');
   audio.play();
 }
 function playCooked() {
-  const AuDiO = new Audio('doh.wav');
+  const audio = new Audio('crash.wav');
+  audio.play();
+}
+function playNoise() {
+  const audio = new Audio('noise.wav');
+  audio.play();
 }
 
 let count = 0;
@@ -201,7 +210,8 @@ let interval = null;
 let running = false;
 let popups = [];
 let dragTarget = null, dragOffX = 0, dragOffY = 0;
-let delay = 600;
+let delay = 400;
+let crashPending = false;
 
 document.addEventListener('mousemove', e => {
   if (dragTarget) {
@@ -227,7 +237,7 @@ function makePopup() {
   win.style.transform = `rotate(${rand(-8, 8)}deg)`;
   win.style.zIndex = 1000 + count;
 
-  win.innerHTML = `
+  win.innerHTML = ` 
     <div class="popup-titlebar" title="drag me">
       <span>🍩 Homer.exe #${count}</span>
       <div class="popup-close" title="close">✕</div>
@@ -257,58 +267,60 @@ function makePopup() {
 
   document.body.appendChild(win);
   popups.push(win);
-  playDoh();
+  playCooked();
 
 
-}
-
-// Floating Homers on the main screen
-for (let i = 0; i < 4; i++) {
-  const h = document.createElement('div');
-  h.className = 'homer-float';
-  h.style.left = rand(5, 80) + '%';
-  h.style.top  = rand(5, 80) + '%';
-  h.style.animationDuration = rand(2, 5) + 's';
-  h.style.animationDelay   = rand(0, 3) + 's';
-  h.style.width  = rand(80, 150) + 'px';
-  h.style.height = h.style.width;
-  document.body.appendChild(h);
 }
 
 function triggerCrash() {
-  playCooked();
+  playNoise();
   running = false;
   clearTimeout(interval);
-  document.getElementById('crash').style.display = 'block';
+  
+
+  document.body.style.background = '#000';
+  document.querySelectorAll('body > *').forEach(el => el.style.visibility = 'hidden');
+
+  setTimeout(function() {
+    playDoh();
+    const crash = document.getElementById('crash');
+    crash.style.visibility = 'visible'; 
+    crash.style.display = 'block';
+  }, 3000);
 }
 
 function scheduleNext() {
   if (!running) return;
   interval = setTimeout(function() {
     makePopup();
-    delay = Math.max(60, delay * 0.92);
-    if (delay <= 60) {
-      triggerCrash();  // 💥 crash when limit is hit
-      return;
+    delay = Math.max(30, delay * 0.92);
+    if (delay <= 30 && !crashPending) {
+      crashPending = true;
+      setTimeout(triggerCrash, 2000);
     }
     scheduleNext();
   }, delay);
 }
 
-function toggleChaos() {
-  if (!running) {
+function triggerDonut() {
+  const donut = document.getElementById('donut');
+  donut.classList.add('exploding');
+
+  // Go fullscreen on the click
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  else if (el.msRequestFullscreen) el.msRequestFullscreen();
+
+  setTimeout(function() {
+    donut.style.display = 'none';
+    // hide the h1 and p too
+    document.getElementById('counter').style.display = 'block';
+    // start chaos
     running = true;
-    delay = 2000;  // resets to slow on each fresh start
-    document.getElementById('btn').textContent = '🛑 STOP THE MADNESS 🛑';
-    document.getElementById('btn').style.background = '#006600';
     makePopup();
     scheduleNext();
-  } else {
-    running = false;
-    clearTimeout(interval);
-    document.getElementById('btn').textContent = '🍩 UNLEASH HOMER 🍩';
-    document.getElementById('btn').style.background = '#FF3300';
-  }
+  }, 600);
 }
 </script>
 <div id="crash">
